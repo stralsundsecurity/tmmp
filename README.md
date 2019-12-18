@@ -23,7 +23,7 @@ There are a few abstractions layers defined in this project:
 - "aiosock": Low-level socket-like interfaces, but all methods are awaitable.
 Each protocol (only TLS to this date) has an own implementation. 
 - "protocols.proxy": Proxy protocol implementations (HTTP-CONNECT, SOCKS, etc.)
-- "protocols.application": Thos indicicate when to switch the underlying "aiosock" to a different one.
+- "protocols.application": Those indicate when to switch the underlying "aiosock" to a different one.
 
 The main "entrypoint" in in "main.py", the logic of each connection is in "tunnel.py".
 
