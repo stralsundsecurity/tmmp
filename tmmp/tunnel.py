@@ -1,7 +1,12 @@
-from asyncio import get_event_loop, wait_for, AbstractEventLoop, Lock, TimeoutError
+from asyncio import get_event_loop, wait_for, AbstractEventLoop, Lock, \
+    TimeoutError
+from pathlib import Path
+from time import time
 from typing import Collection
 
 from .aiosock.abc import AbstractAioSocket
+from .defaults import PCAP_PATH
+from .pcap import PacketWriter
 from .protocols.application.abc import ApplicationProtocol
 
 
@@ -12,9 +17,12 @@ class Tunnel:
     protocol_depth = 0
     client_active: bool = True
     server_active: bool = True
+    writer: PacketWriter
 
     def __init__(self, client: AbstractAioSocket, server: AbstractAioSocket,
-                 protocols: Collection[ApplicationProtocol] = (), loop: AbstractAioSocket = None):
+                 protocols: Collection[ApplicationProtocol] = (),
+                 loop: AbstractEventLoop = None):
+
         self.client = client
         self.server = server
 
@@ -27,6 +35,24 @@ class Tunnel:
         self.loop = loop
         if loop is None:
             self.loop = get_event_loop()
+
+        server_info = Tunnel.ip_to_ipv6(
+            server.get_real_socket().getpeername()[0]
+        ), server.get_real_socket().getpeername()[1]
+        client_info = Tunnel.ip_to_ipv6(
+            client.get_real_socket().getpeername()[0]
+        ), client.get_real_socket().getpeername()[1]
+
+        self.writer = PacketWriter(
+            client_info,
+            server_info,
+            str(
+                Tunnel.new_pcap_name(
+                    server.get_real_socket().getpeername()[0],
+                    client.get_real_socket().getpeername()[0]
+                ).absolute()
+            )
+        )
 
     def schedule(self):
         self.loop.create_task(self.communicate_client_to_server())
@@ -52,24 +78,24 @@ class Tunnel:
 
                     for protocol in self.protocols:
                         if protocol.is_protocol_packet(data):
-                            async with self.server_to_client:  # Avoid communication
-                                self.client, self.server = await protocol.wrap_connection(
-                                    data, self.client, self.server, self.loop)
+                            # Avoid any communication
+                            async with self.server_to_client:
+                                self.client, self.server = \
+                                    await protocol.wrap_connection(data,
+                                                                   self.client,
+                                                                   self.server,
+                                                                   self.loop)
                             self.protocol_depth += 1
                             do_not_send = True
                             break
                     if do_not_send:
                         continue
 
-                if self.protocol_depth and data:
-                    print("↑ ", data)
-
                 if data:
                     # self.client_active = True
                     await self.server.sendall(data)
+                    self.writer.server(data)
 
-                    if self.protocol_depth and data:
-                        print("↑ ✓")
                 else:
                     self.active = False
 
@@ -87,15 +113,31 @@ class Tunnel:
                 except:  # TODO: Be more specific
                     self.active = False
                     raise
-                if self.protocol_depth and data:
-                    # print("↓", data)
-                    ...
 
                 if data:
                     await self.client.sendall(data)
-                    if self.protocol_depth and data:
-                        print("↓ ✓")
+                    self.writer.client(data)
+
                 else:
                     self.active = False
 
         self.server.get_real_socket().close()
+
+    @staticmethod
+    def new_pcap_name(source: str, dest: str) -> Path:
+        rel_name = (
+            f"{source.replace(':','-')}"
+            f" "
+            f"{dest.replace(':','-')}"
+            f" "
+            f"{str(time()).replace('.', '-')}"
+            f".pcap"
+        )
+
+        return Path(PCAP_PATH).joinpath(rel_name)
+
+    @staticmethod
+    def ip_to_ipv6(ip: str) -> str:
+        if ":" not in ip:
+            return "::ffff:"+ip
+        return ip

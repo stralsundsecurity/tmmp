@@ -29,8 +29,10 @@ The main "entrypoint" in in "main.py", the logic of each connection is in "tunne
 
 ## Future features
 
-- Configurable (TOML configuration file)
-- Use a CA certificate to generate certificates.
-- Make the issuer name configurable (currently static to "TLS Breaker Proxy").
-- Better logging
-- Actually catch exceptions in coroutines (currently coroutines are canceled)
+- [x] Configurable (TOML configuration file)
+- [x] PCAP capturing (stream of decrypted data is emulated)
+- [ ] Use a CA certificate to generate certificates.
+- [ ] Make the issuer name configurable (currently static to "TLS Breaker Proxy").
+- [ ] Better logging
+- [ ] Actually catch exceptions in coroutines (currently coroutines are canceled)
+- [ ] Extension support

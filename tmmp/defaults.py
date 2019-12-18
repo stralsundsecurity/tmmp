@@ -1,1 +1,2 @@
 CERTIFICATE_ISSUER = "TLS MitM Proxy"
+PCAP_PATH = "pcap"
