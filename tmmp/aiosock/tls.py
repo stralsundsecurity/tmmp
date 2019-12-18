@@ -33,7 +33,7 @@ class AioTlsSocket(AbstractAioSocket):
         self.master_secret = None
 
         self.abstract_socket = abstract_socket
-        self.server_side=server_side
+        self.server_side = server_side
 
         self.tls: ssl.SSLObject = context.wrap_bio(self.incoming, self.outgoing, server_side, server_hostname)
 
