@@ -16,8 +16,10 @@ class TlsProtocol(ApplicationProtocol, Configurable):
 
     def __init__(self, configuration: Configuration):
         Configurable.__init__(self, configuration)  # Only for Pycharm linter
-        self.ciphers = configuration.configuration.get("tls", {}).get("ciphers", "ALL")
-        self.certificate_manager = configuration.providers[Provider.CERTIFICATE_MANAGER]
+        self.ciphers = configuration.configuration.get(
+            "tls", {}).get("ciphers", "ALL")
+        self.certificate_manager = \
+            configuration.providers[Provider.CERTIFICATE_MANAGER]
 
     @staticmethod
     def get_protocol_name() -> str:
@@ -52,7 +54,8 @@ class TlsProtocol(ApplicationProtocol, Configurable):
         certificate_file = self.certificate_manager.get_certificate(sni)
         ctx = SSLContext(PROTOCOL_SSLv23)
         ctx.set_ciphers(self.ciphers)
-        ctx.load_cert_chain(certificate_file, certificate_file)
+        ctx.load_cert_chain(certificate_file, certificate_file,
+                            self.certificate_manager.get_certificate_password())
         print("Wrapping Client")
         new_up = AioTlsSocket(up, ctx, True, loop=loop)
         new_up.push_data(packet)

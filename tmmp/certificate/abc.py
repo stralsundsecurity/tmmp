@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Any, Dict, Union
 from uuid import uuid4
 
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import asymmetric
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import ec
 
@@ -23,14 +22,20 @@ class CertificateManager(ABC):
 
     @abstractmethod
     def get_certificate(self, hostname: str) -> str:
-        """Creates an x509 certificate in PEM format for the given hostname and returns a filename to the certificate.
-        """
+        """Creates an x509 certificate in PEM format for the given hostname and
+        returns a filename to the certificate."""
+
+
+    @abstractmethod
+    def get_certificate_password(self) \
+            -> Union[str, bytes, None]:
+        """Returns the password for a previously generated certificate."""
 
     def keygen(self):
         """Prepares the keys."""
         self.keys["rsa"] = rsa.generate_private_key(
             public_exponent=65537,
-            key_size=2048,
+            key_size=3072,
             backend=default_backend()
         )
         self.keys["ecdsa"] = ec.generate_private_key(

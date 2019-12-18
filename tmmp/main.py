@@ -11,11 +11,12 @@ from .aiosock import AioSocket
 from .configuration import Configuration, Provider
 from .certificate import SelfSignedCertificateManager
 from .protocols.application import TlsProtocol
-from .protocols.proxy import ProxyABC, EMPTY_RESPONSE, HttpConnectProxy, SocksProxy
+from .protocols.proxy import ProxyABC, EMPTY_RESPONSE, SocksProxy
 from .tunnel import Tunnel
 
 config = Configuration()
-config.providers[Provider.CERTIFICATE_MANAGER] = SelfSignedCertificateManager(config)
+config.providers[Provider.CERTIFICATE_MANAGER] = \
+    SelfSignedCertificateManager(config)
 config.application_protocols.append(TlsProtocol(config))
 
 
@@ -124,7 +125,8 @@ async def transfer(loop, socka, sockb):
     while True:
         data = await loop.sock_recv(sockb, 1024)
         try:
-            print(sockb.getpeername()[0], "->", socka.getpeername()[0], len(data))
+            print(sockb.getpeername()[0], "->", socka.getpeername()[0],
+                  len(data))
         except OSError:
             return
 
@@ -140,10 +142,13 @@ def main():
     conf = command_line()
     provider_conf = conf.configuration.get("providers", {})
     if provider_conf.get("certificates", "selfsigned") == "selfsigned":
-        conf.providers[Provider.CERTIFICATE_MANAGER] = SelfSignedCertificateManager(conf)
+        conf.providers[Provider.CERTIFICATE_MANAGER] = \
+            SelfSignedCertificateManager(conf)
     else:
         raise NotImplementedError(
-            f"Certificate provider not implemented: {provider_conf['certificates']}")
+            f"Certificate provider not implemented: "
+            f"{provider_conf['certificates']}"
+        )
 
     s = socket.socket(socket.AF_INET6)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -153,4 +158,3 @@ def main():
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(mainloop(s))
-

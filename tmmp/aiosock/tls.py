@@ -78,10 +78,7 @@ class AioTlsSocket(AbstractAioSocket):
 
     async def _recv(self):
         data = await self.abstract_socket.recv(self.internal_blocksize)
-        #if data:
-        #if True:
         self.incoming.write(data)
-        # return len(data)
 
     async def _send(self):
         data = self.outgoing.read()
