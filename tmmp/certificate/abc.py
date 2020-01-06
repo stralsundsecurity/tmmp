@@ -25,7 +25,6 @@ class CertificateManager(ABC):
         """Creates an x509 certificate in PEM format for the given hostname and
         returns a filename to the certificate."""
 
-
     @abstractmethod
     def get_certificate_password(self) \
             -> Union[str, bytes, None]:

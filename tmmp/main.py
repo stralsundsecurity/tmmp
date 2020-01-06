@@ -2,23 +2,23 @@
 Module containing the interactive script.
 """
 import asyncio
+import io
 import socket
 import sys
+import time
 
 from typing import List
 
 from .aiosock import AioSocket
-from .configuration import Configuration, Provider
+from .configuration import Provider
 from .certificate import SelfSignedCertificateManager
+from .parse_config import parse_config
 from .protocols.application import TlsProtocol
-from .protocols.proxy import ProxyABC, EMPTY_RESPONSE, SocksProxy
+from .protocols.proxy import ProxyProtocol, EMPTY_RESPONSE, SocksProxy
 from .tunnel import Tunnel
 
-config = Configuration()
-config.providers[Provider.CERTIFICATE_MANAGER] = \
-    SelfSignedCertificateManager(config)
-config.application_protocols.append(TlsProtocol(config))
-
+from aiofile import AIOFile
+from scapy.all import PcapWriter
 
 USAGE = """\
 usage: tmmp (--help | --example | config_file)
@@ -59,7 +59,8 @@ ciphers: Which ciphers to allow on the listening side \
 
 -- Section "providers"
 certificates: Values possible are "selfsigned" or "ca" (default "selfsigned").\
- If "ca" is used, "cacert" must be set. 
+ If "ca" is used, "cacert" must be set.
+selfsigned_cn: To what value the CN of the issue field should be set.
 
 In the future, it will be possible to set server side verification and \
 outgoing ciphers.
@@ -86,7 +87,7 @@ certificates = "selfsigned"
 """
 
 
-def command_line(argv: List[str] = sys.argv) -> Configuration:
+def command_line(argv: List[str] = sys.argv):
     if len(argv) != 2 or argv[1].startswith("-"):
         print(USAGE.format(name=argv[0]))
         sys.exit(-1)
@@ -98,57 +99,63 @@ def command_line(argv: List[str] = sys.argv) -> Configuration:
         print(EXAMPLE)
         sys.exit(0)
 
-    return Configuration.parse(sys.argv[1])
+    return parse_config(sys.argv[1])
 
 
-async def mainloop(sock):
+async def mainloop(sock, config, providers):
     loop = asyncio.get_event_loop()
+    buffer = io.BytesIO()
+    writer = PcapWriter(buffer, sync=True)
+
+    loop.create_task(
+        buffer_to_file(f"pcap/{int(time.time())}.pcap", buffer)
+    )
+
     while True:
         connection, _ = await loop.sock_accept(sock)
 
-        loop.create_task(do_proxy_stuff(loop, connection))
+        loop.create_task(
+            do_proxy_stuff(loop, connection, config, providers, writer))
 
 
-async def do_proxy_stuff(loop, connection):
-    proxy: ProxyABC = SocksProxy.new({}, loop)
+async def do_proxy_stuff(loop, connection, config, providers,
+                         write_to: PcapWriter):
+    proxy: ProxyProtocol = providers[Provider.PROXY_PROTOCOL].new({}, loop)
 
     _, remote = await proxy.proxy_handshake(connection)
     if remote == EMPTY_RESPONSE:
         return
 
     tunnel = Tunnel(AioSocket(connection), AioSocket(remote),
-                    protocols=config.application_protocols, loop=loop)
+                    protocols=providers[Provider.APPLICATION_PROTOCOLS],
+                    loop=loop, write_to=write_to)
     tunnel.schedule()
 
 
-async def transfer(loop, socka, sockb):
-    while True:
-        data = await loop.sock_recv(sockb, 1024)
-        try:
-            print(sockb.getpeername()[0], "->", socka.getpeername()[0],
-                  len(data))
-        except OSError:
-            return
+async def buffer_to_file(filename, buffer):
+    """Writes the PCAP every .2 seconds to avoid synchronous writes."""
+    file = None
 
-        if not data:
-            return
+    async with AIOFile(str(filename), 'ab') as pcap:
+        while True:
+            await asyncio.sleep(1)
 
-        await loop.sock_sendall(
-            socka, data
-        )
+            b = buffer.getvalue()
+            buffer.truncate(0)
+            buffer.seek(0)
+
+            if not b:
+                print("No data.")
+                continue
+
+            print(f"Has {len(b)} bytes.")
+
+            await pcap.write(b)
+            # await pcap.fsync()
 
 
 def main():
-    conf = command_line()
-    provider_conf = conf.configuration.get("providers", {})
-    if provider_conf.get("certificates", "selfsigned") == "selfsigned":
-        conf.providers[Provider.CERTIFICATE_MANAGER] = \
-            SelfSignedCertificateManager(conf)
-    else:
-        raise NotImplementedError(
-            f"Certificate provider not implemented: "
-            f"{provider_conf['certificates']}"
-        )
+    config, providers = command_line()
 
     s = socket.socket(socket.AF_INET6)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -157,4 +164,4 @@ def main():
     s.setblocking(False)
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(mainloop(s))
+    loop.run_until_complete(mainloop(s, config, providers))

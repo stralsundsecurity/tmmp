@@ -2,20 +2,20 @@ from asyncio import AbstractEventLoop
 from socket import socket, AF_INET, AF_INET6, IPPROTO_TCP
 from typing import Any, Mapping, Tuple
 
-from .abc import ProxyABC
+from .abc import ProxyProtocol
 from tmmp.util.ip import is_ipv4, is_ipv6
 
 
-class SimpleProxy(ProxyABC):
+class SimpleProxy(ProxyProtocol):
     def __init__(self, remote: Tuple[str, int], loop: AbstractEventLoop):
         self.remote = remote
         self.loop = loop
 
     @staticmethod
     def new(configuration: Mapping[str, Any], loop: AbstractEventLoop) \
-            -> ProxyABC:
+            -> ProxyProtocol:
         """Creates a new simple proxy."""
-        return SimpleProxy(configuration["remote"], loop)
+        return SimpleProxy(configuration["proxy"]["remote"], loop)
 
     async def proxy_handshake(self, connection: socket) \
             -> Tuple[Tuple[str, int], socket]:

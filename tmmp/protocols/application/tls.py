@@ -1,12 +1,13 @@
 from asyncio import AbstractEventLoop
-from ssl import SSLContext, PROTOCOL_SSLv23, OP_NO_SSLv3, _create_unverified_context
+from ssl import SSLContext, PROTOCOL_SSLv23, OP_NO_SSLv3, \
+    _create_unverified_context
 from struct import unpack
 from typing import Tuple
 
 from .abc import ApplicationProtocol
 from ...aiosock.abc import AbstractAioSocket
 from ...aiosock.tls import AioTlsSocket
-from ...configuration import Configurable, Configuration, Provider
+from ...configuration import Configurable, Provider
 from ...certificate.abc import CertificateManager
 from ...util.tls.sni import get_sni_from_handshake
 
@@ -14,12 +15,15 @@ from ...util.tls.sni import get_sni_from_handshake
 class TlsProtocol(ApplicationProtocol, Configurable):
     certificate_manager: CertificateManager
 
-    def __init__(self, configuration: Configuration):
-        Configurable.__init__(self, configuration)  # Only for Pycharm linter
-        self.ciphers = configuration.configuration.get(
+    def __init__(self, configuration, providers):
+        # Only for Pycharm linter
+        Configurable.__init__(self, configuration, providers)
+
+        self.ciphers = configuration.get(
+
             "tls", {}).get("ciphers", "ALL")
         self.certificate_manager = \
-            configuration.providers[Provider.CERTIFICATE_MANAGER]
+            providers[Provider.CERTIFICATE_MANAGER]
 
     @staticmethod
     def get_protocol_name() -> str:
@@ -37,7 +41,10 @@ class TlsProtocol(ApplicationProtocol, Configurable):
             len(packet)-5 == unpack("!H", packet[3:5])[0]
         ))
 
-    async def wrap_connection(self, packet: bytes, up: AbstractAioSocket, down: AbstractAioSocket,
+    async def wrap_connection(self,
+                              packet: bytes,
+                              up: AbstractAioSocket,
+                              down: AbstractAioSocket,
                               loop: AbstractEventLoop) -> \
             Tuple[AbstractAioSocket, AbstractAioSocket]:
         print("Wrapping connection...")

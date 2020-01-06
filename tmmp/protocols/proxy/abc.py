@@ -4,11 +4,11 @@ from socket import socket
 from typing import Any, Mapping, Tuple
 
 
-class ProxyABC(ABC):
+class ProxyProtocol(ABC):
     @staticmethod
     @abstractmethod
     def new(configuration: Mapping[str, Any], loop: AbstractEventLoop) \
-            -> "ProxyABC":
+            -> "ProxyProtocol":
         """Creates a new proxy."""
         raise NotImplementedError("This is an empty abstract method.")
 

@@ -1,5 +1,6 @@
-from asyncio import get_event_loop, wait_for, AbstractEventLoop, Lock, \
+from asyncio import get_event_loop, sleep, wait_for, AbstractEventLoop, Lock, \
     TimeoutError
+from io import BytesIO
 from pathlib import Path
 from time import time
 from typing import Collection
@@ -8,6 +9,8 @@ from .aiosock.abc import AbstractAioSocket
 from .defaults import PCAP_PATH
 from .pcap import PacketWriter
 from .protocols.application.abc import ApplicationProtocol
+
+from scapy.all import PcapWriter
 
 
 class Tunnel:
@@ -18,10 +21,11 @@ class Tunnel:
     client_active: bool = True
     server_active: bool = True
     writer: PacketWriter
+    pcap_filename: Path
 
     def __init__(self, client: AbstractAioSocket, server: AbstractAioSocket,
                  protocols: Collection[ApplicationProtocol] = (),
-                 loop: AbstractEventLoop = None):
+                 loop: AbstractEventLoop = None, write_to: PcapWriter = None):
 
         self.client = client
         self.server = server
@@ -43,15 +47,13 @@ class Tunnel:
             client.get_real_socket().getpeername()[0]
         ), client.get_real_socket().getpeername()[1]
 
+        if write_to is None:
+            write_to = PcapWriter(BytesIO())
+
         self.writer = PacketWriter(
             client_info,
             server_info,
-            str(
-                Tunnel.new_pcap_name(
-                    server.get_real_socket().getpeername()[0],
-                    client.get_real_socket().getpeername()[0]
-                ).absolute()
-            )
+            write_to
         )
 
     def schedule(self):
@@ -79,12 +81,19 @@ class Tunnel:
                     for protocol in self.protocols:
                         if protocol.is_protocol_packet(data):
                             # Avoid any communication
-                            async with self.server_to_client:
-                                self.client, self.server = \
-                                    await protocol.wrap_connection(data,
-                                                                   self.client,
-                                                                   self.server,
-                                                                   self.loop)
+                            try:
+                                async with self.server_to_client:
+                                    self.client, self.server = \
+                                        await protocol.wrap_connection(
+                                            data,
+                                            self.client,
+                                            self.server,
+                                            self.loop
+                                        )
+                            except Exception:  # Todo...
+                                self.active = False
+                                raise
+
                             self.protocol_depth += 1
                             do_not_send = True
                             break
@@ -123,14 +132,15 @@ class Tunnel:
 
         self.server.get_real_socket().close()
 
+
     @staticmethod
     def new_pcap_name(source: str, dest: str) -> Path:
         rel_name = (
+            f"{str(time()).replace('.', '-')}"
+            f" "
             f"{source.replace(':','-')}"
             f" "
             f"{dest.replace(':','-')}"
-            f" "
-            f"{str(time()).replace('.', '-')}"
             f".pcap"
         )
 

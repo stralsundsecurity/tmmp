@@ -23,7 +23,8 @@ class ApplicationProtocol(ABC):
         raise NotImplementedError("This ABC does not implement any methods.")
 
     @abstractmethod
-    async def wrap_connection(self, packet: bytes, up: AbstractAioSocket, down: AbstractAioSocket,
+    async def wrap_connection(self, packet: bytes, up: AbstractAioSocket,
+                              down: AbstractAioSocket,
                               loop: AbstractEventLoop) -> \
             Tuple[AbstractAioSocket, AbstractAioSocket]:
         raise NotImplementedError("This ABC does not implement any methods.")

@@ -6,7 +6,7 @@ from struct import pack, unpack
 from typing import Any, Mapping, Tuple
 
 from ._empty import EMPTY_RESPONSE
-from .abc import ProxyABC
+from .abc import ProxyProtocol
 
 
 SOCKS4_SUCCESS = b"\x5a"
@@ -22,13 +22,13 @@ SOCKS5_EPROTOCOL = b"\x07"
 SOCKS5_PADDING = b"\x00" + b"\x01" + 4*b"\xff" + 2*b"\xff"
 
 
-class SocksProxy(ProxyABC):
+class SocksProxy(ProxyProtocol):
     def __init__(self,loop: AbstractEventLoop):
         self.loop = loop
 
     @staticmethod
     def new(configuration: Mapping[str, Any], loop: AbstractEventLoop) \
-            -> ProxyABC:
+            -> ProxyProtocol:
         """Creates a new SOCKS4/4a/5 proxy."""
         return SocksProxy(loop)
 

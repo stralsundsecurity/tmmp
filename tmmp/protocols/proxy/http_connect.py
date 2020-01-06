@@ -2,16 +2,17 @@ from asyncio import AbstractEventLoop
 from socket import socket, IPPROTO_TCP
 from typing import Any, Mapping, Tuple
 
-from .abc import ProxyABC
+from .abc import ProxyProtocol
 from ._empty import EMPTY_RESPONSE
 
 
-class HttpConnectProxy(ProxyABC):
+class HttpConnectProxy(ProxyProtocol):
     def __init__(self, loop: AbstractEventLoop):
         self.loop = loop
 
     @staticmethod
-    def new(configuration: Mapping[str, Any], loop: AbstractEventLoop) -> ProxyABC:
+    def new(configuration: Mapping[str, Any], loop: AbstractEventLoop) \
+            -> ProxyProtocol:
         """Creates a new simple proxy."""
         return HttpConnectProxy(loop)
 

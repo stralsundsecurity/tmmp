@@ -1,9 +1,9 @@
 from secrets import token_bytes
 from tempfile import NamedTemporaryFile
-from typing import Union
+from typing import MutableMapping, Union
 
 from .abc import CertificateManager
-from ..configuration import Configuration, Configurable
+from ..configuration import Configurable
 from ..defaults import CERTIFICATE_ISSUER
 
 from cryptography import x509
@@ -23,12 +23,13 @@ class SelfSignedCertificateManager(CertificateManager, Configurable):
     Generate self-signed certificates for any given hostname.
     """
 
-    def __init__(self, configuration: Configuration):
+    def __init__(self, configuration, providers):
+        super().__init__(configuration, providers)
+
         self.keygen()
-        self.issuer = configuration.configuration.get(
-            "certificate_issuer", CERTIFICATE_ISSUER)
+        self.issuer = configuration.get(
+            "providers", {}).get("selfsigned_cn", CERTIFICATE_ISSUER)
         self.certificates = {}
-        super().__init__(configuration)
 
     def get_certificate(self, hostname: str) -> str:
         key: RSAPrivateKeyWithSerialization = self.keys["rsa"]

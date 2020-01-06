@@ -5,6 +5,7 @@ The TCP sequence numbers will not be the real ones and are randomly chosen
 for each stream.
 """
 
+from io import BytesIO
 from random import randint
 from typing import Iterable, Tuple
 
@@ -25,10 +26,12 @@ class PacketWriter:
 
     out: PcapWriter
 
+    tcp_handshake: bool
+
     def __init__(self,
                  client: Tuple[str, int],
                  server: Tuple[str, int],
-                 out: str):
+                 out_writer: PcapWriter):
 
         self.client_ip_base = IPv6()
         self.client_ip_base.src = client[0]
@@ -38,13 +41,18 @@ class PacketWriter:
         self.server_ip_base.src = server[0]
         self.server_ip_base.dst = client[0]
 
-        self.out = PcapWriter(out)
+        self.out = out_writer
 
         self.client_port = client[1]
         self.server_port = server[1]
 
         self.client_seq = randint(1, 2 ** 32 - 1)
         self.server_seq = randint(1, 2 ** 32 - 1)
+
+        self.tcp_handshake = False
+
+    def write_handshake(self):
+        self.tcp_handshake = True
 
         self.write_packets((
             self.client_ip_base / TCP(
@@ -70,6 +78,9 @@ class PacketWriter:
         ))
 
     def server(self, data: bytes):
+        if not self.tcp_handshake:
+            self.write_handshake()
+
         seq = self.server_seq
         self.server_seq = (seq + len(data)) & 0xff_ff_ff_ff
 
@@ -79,7 +90,7 @@ class PacketWriter:
                  dport=self.client_port,
                  seq=seq,
                  ack=self.client_seq,
-                 flags="PA") / data,
+                 flags="A") / data,
             self.client_ip_base / TCP (
                 sport=self.client_port,
                 dport=self.server_port,
@@ -90,6 +101,9 @@ class PacketWriter:
         ))
 
     def client(self, data: bytes):
+        if not self.tcp_handshake:
+            self.write_handshake()
+
         seq = self.client_seq
         self.client_seq = (seq + len(data)) & 0xff_ff_ff_ff
 
@@ -99,7 +113,7 @@ class PacketWriter:
                 dport=self.server_port,
                 seq=seq,
                 ack=self.server_seq,
-                flags="PA") / data,
+                flags="A") / data,
             self.server_ip_base / TCP(
                 sport=self.server_port,
                 dport=self.client_port,
@@ -118,7 +132,7 @@ class PacketWriter:
 
 if __name__ == "__main__":
     p = PacketWriter(("2a0d:5940:1:91::2", 1337),
-                     ("2a00:1450:4005:80b::2003", 80), PcapWriter(open("out.pcap", "wb")))
+                     ("2a00:1450:4005:80b::2003", 80))
     p.client(
         b"GET / HTTP/1.0\r\n"
         b"Connection: close\r\n"

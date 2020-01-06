@@ -1,3 +1,4 @@
+aiofile
 cryptography
 toml
 scapy

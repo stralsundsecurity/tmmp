@@ -4,14 +4,13 @@ port = 1234
 
 [proxy]
 protocol = "socks"
-# protocol_class = "tmmp.protocols.proxy:SocksProxy"
 
 [application]
 protocols = [ "tls" ]
-# protocols_class = [ "tmmp.protocols.application:TlsProtocol" ]
 
 [tls]
 ciphers = "ALL"
 
 [providers]
 certificates = "selfsigned"
+selfsigned_cn = "TLS Breaker Proxy"
